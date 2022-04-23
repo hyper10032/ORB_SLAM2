@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(ORB_SLAM2)
 
 IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release)
+  SET(CMAKE_BUILD_TYPE "Release")
 ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
@@ -28,7 +28,7 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-find_package(OpenCV 3.0 QUIET)
+find_package(OpenCV 3.2.0 QUIET)
 if(NOT OpenCV_FOUND)
    find_package(OpenCV 2.4.3 QUIET)
    if(NOT OpenCV_FOUND)
@@ -36,8 +36,8 @@ if(NOT OpenCV_FOUND)
    endif()
 endif()
 
-find_package(Eigen3 3.1.0 REQUIRED)
-find_package(Pangolin REQUIRED)
+find_package(Eigen3 3.3 REQUIRED)
+find_package(Pangolin 0.5 REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -111,3 +111,9 @@ add_executable(mono_euroc
 Examples/Monocular/mono_euroc.cc)
 target_link_libraries(mono_euroc ${PROJECT_NAME})
 
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/mytest)
+
+add_executable(run_orb
+mytest/run_orb.cpp)
+target_link_libraries(run_orb ${PROJECT_NAME})
