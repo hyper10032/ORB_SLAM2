@@ -36,7 +36,7 @@ if(NOT OpenCV_FOUND)
    endif()
 endif()
 
-find_package(Eigen3 3.3 REQUIRED)
+find_package(Eigen3 3.3.4 REQUIRED)
 find_package(Pangolin 0.5 REQUIRED)
 
 include_directories(
