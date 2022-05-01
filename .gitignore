@@ -14,6 +14,7 @@ Examples/Stereo/stereo_kitti
 KeyFrameTrajectory.txt
 CameraTrajectory.txt
 ground_truth.txt
+orb.txt
 .vscode/
 mytest/run_orb
 Thirdparty/DBoW2/build/

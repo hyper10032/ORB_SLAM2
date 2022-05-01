@@ -29,8 +29,8 @@ Camera.bf: 40.0
 Camera.RGB: 1
 
 # Close/Far threshold. Baseline times.
-ThDepth: 1000000.0
-# ThDepth: 300.0
+# ThDepth: 1000000.0
+ThDepth: 300.0
 
 # Deptmap values factor 
 DepthMapFactor: 1000.0
@@ -52,8 +52,8 @@ ORBextractor.nLevels: 8
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
 # You can lower these values if your images have low contrast			
-ORBextractor.iniThFAST: 20
-ORBextractor.minThFAST: 7
+ORBextractor.iniThFAST: 5
+ORBextractor.minThFAST: 1
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters

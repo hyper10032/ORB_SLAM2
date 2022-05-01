@@ -44,6 +44,9 @@ int main(int argc, char **argv)
     fout_gt << fixed;
     fout_gt << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
             << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
+    ofstream fout_orb("orb.txt");
+    fout_orb << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
+             << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
 
     // 第一帧ground truth
     ifstream fin;
@@ -83,20 +86,12 @@ int main(int argc, char **argv)
             return 1;
         }
 
-#ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-#else
-        std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
-#endif
 
         // Pass the image to the SLAM system
-        SLAM.TrackRGBD(imRGB, imD, timeStamp);
+        cv::Mat Tcw = SLAM.TrackRGBD(imRGB, imD, timeStamp);
 
-#ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-#else
-        std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
-#endif
 
         double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
         // cout << "time used: " << ttrack << endl;
@@ -111,6 +106,20 @@ int main(int argc, char **argv)
 
         if (count != 0)
         {
+            // orb estimate
+            cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
+            cv::Mat twc = -Rwc * Tcw.rowRange(0, 3).col(3);
+
+            Eigen::Matrix3f temp;
+            temp << Rwc.at<float>(0, 0), Rwc.at<float>(0, 1), Rwc.at<float>(0, 2),
+                Rwc.at<float>(1, 0), Rwc.at<float>(1, 1), Rwc.at<float>(1, 2),
+                Rwc.at<float>(2, 0), Rwc.at<float>(2, 1), Rwc.at<float>(2, 2);
+            Eigen::Quaternionf qwc(temp);
+
+            fout_orb << setprecision(6) << timeStamp << " "
+                     << setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " "
+                     << qwc.x() << " " << qwc.y() << " " << qwc.z() << " " << qwc.w() << "\n";
+
             // ground truth
             auto R2_gt = j[img_number_2]["cam_R_w2c"];
             auto t2_gt = j[img_number_2]["cam_t_w2c"];
@@ -129,67 +138,67 @@ int main(int argc, char **argv)
 
         count += step;
         timeStamp += 0.005 * step;
+        // if (count == 1000)
+        // {
+        //     break;
+        // }
+
         if (count == 1000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000001";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 2000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000002";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 3000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000003";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 4000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000004";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 5000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000005";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 6000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000006";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 7000)
+        {
+            myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000007";
+            fin.open(myPath + "/" + "scene_camera.json");
+            fin >> j;
+            fin.close();
+        }
+        else if (count == 8000)
         {
             break;
         }
-
-        // if (count == 1000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000001";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 2000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000002";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 3000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000003";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 4000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000004";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 5000)
-        // {
-        //     break;
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000005";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 6000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000006";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 7000)
-        // {
-        //     myPath = "/home/hyper/code/backup/chandra_pose_estimation_posetxt/train_pbr/000007";
-        //     fin.open(myPath + "/" + "scene_camera.json");
-        //     fin >> j;
-        //     fin.close();
-        // }
-        // else if (count == 8000)
-        // {
-        //     break;
-        // }
     }
     fout_gt.close();
+    fout_orb.close();
 
     // Stop all threads
     SLAM.Shutdown();
