@@ -45,7 +45,7 @@ namespace ORB_SLAM2
 
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
-    mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
+    mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL), mpICPsolver(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
 {
     // Load camera parameters from settings file
@@ -163,6 +163,10 @@ void Tracking::SetViewer(Viewer *pViewer)
     mpViewer=pViewer;
 }
 
+void Tracking::SetICPsolver(ICPsolver *pICPsolver)
+{
+    mpICPsolver = pICPsolver;
+}
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
 {
@@ -203,11 +207,37 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
     return mCurrentFrame.mTcw.clone();
 }
 
+cv::Mat Tracking::GetFirstDepth()
+{
+    unique_lock<mutex> lock(mMutexFirst);
+    return mImFirstDepth;
+}
+
+std::tuple<double,cv::Mat,cv::Mat> Tracking::GetCurrentDepth()
+{
+    unique_lock<mutex> lock(mMutexCurrent);
+    return mCurentDepth;
+}
+
+// std::pair<cv::Mat,cv::Mat> Tracking::GetCurrentDepth()
+// {
+//     unique_lock<mutex> lock(mMutexCurrent);
+//     return mCurentDepth;
+// }
 
 cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp)
 {
     mImGray = imRGB;
     cv::Mat imDepth = imD;
+
+    {
+        unique_lock<mutex> lock(mMutexFirst);
+        if(mImFirstDepth.empty())
+        {
+            mImFirstDepth = imD;
+            cout<<"track thread receive the first depth image..."<<endl;
+        }
+    }
 
     if(mImGray.channels()==3)
     {
@@ -230,6 +260,12 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
     mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
+
+    //Copy variables within scoped mutex
+    {
+        unique_lock<mutex> lock(mMutexCurrent);
+        mCurentDepth = std::make_tuple(timestamp,imD,mCurrentFrame.mTcw.clone());
+    } // destroy scoped mutex -> release mutex
 
     return mCurrentFrame.mTcw.clone();
 }

@@ -14,10 +14,6 @@
 using namespace std;
 using json = nlohmann::json;
 
-void LoadImages(vector<string> &vstrImageFilenamesRGB,
-                vector<string> &vstrImageFilenamesD,
-                vector<double> &vTimestamps);
-
 int main(int argc, char **argv)
 {
     if (argc != 4)
@@ -45,8 +41,13 @@ int main(int argc, char **argv)
     fout_gt << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
             << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
     ofstream fout_orb("orb.txt");
+    fout_orb << fixed;
     fout_orb << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
              << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
+    ofstream fout_orbIcp("orb_icp.txt");
+    fout_orbIcp << fixed;
+    fout_orbIcp << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
+                << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
 
     // 第一帧ground truth
     ifstream fin;
@@ -89,7 +90,10 @@ int main(int argc, char **argv)
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
         // Pass the image to the SLAM system
-        cv::Mat Tcw = SLAM.TrackRGBD(imRGB, imD, timeStamp);
+        // T_camera^world
+        std::pair<cv::Mat, cv::Mat> trackResult = SLAM.TrackRGBD(imRGB, imD, timeStamp);
+        cv::Mat Torb = trackResult.first;
+        cv::Mat TorbIcp = trackResult.second;
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
@@ -106,19 +110,23 @@ int main(int argc, char **argv)
 
         if (count != 0)
         {
-            // orb estimate
-            cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
-            cv::Mat twc = -Rwc * Tcw.rowRange(0, 3).col(3);
-
+            // save result
             Eigen::Matrix3f temp;
-            temp << Rwc.at<float>(0, 0), Rwc.at<float>(0, 1), Rwc.at<float>(0, 2),
-                Rwc.at<float>(1, 0), Rwc.at<float>(1, 1), Rwc.at<float>(1, 2),
-                Rwc.at<float>(2, 0), Rwc.at<float>(2, 1), Rwc.at<float>(2, 2);
-            Eigen::Quaternionf qwc(temp);
-
+            temp << Torb.at<float>(0, 0), Torb.at<float>(0, 1), Torb.at<float>(0, 2),
+                Torb.at<float>(1, 0), Torb.at<float>(1, 1), Torb.at<float>(1, 2),
+                Torb.at<float>(2, 0), Torb.at<float>(2, 1), Torb.at<float>(2, 2);
+            Eigen::Quaternionf qorb(temp);
             fout_orb << setprecision(6) << timeStamp << " "
-                     << setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " "
-                     << qwc.x() << " " << qwc.y() << " " << qwc.z() << " " << qwc.w() << "\n";
+                     << setprecision(9) << Torb.at<float>(0, 3) << " " << Torb.at<float>(1, 3) << " " << Torb.at<float>(2, 3) << " "
+                     << qorb.x() << " " << qorb.y() << " " << qorb.z() << " " << qorb.w() << "\n";
+
+            temp << TorbIcp.at<float>(0, 0), TorbIcp.at<float>(0, 1), TorbIcp.at<float>(0, 2),
+                TorbIcp.at<float>(1, 0), TorbIcp.at<float>(1, 1), TorbIcp.at<float>(1, 2),
+                TorbIcp.at<float>(2, 0), TorbIcp.at<float>(2, 1), TorbIcp.at<float>(2, 2);
+            Eigen::Quaternionf qorbIcp(temp);
+            fout_orbIcp << setprecision(6) << timeStamp << " "
+                        << setprecision(9) << TorbIcp.at<float>(0, 3) << " " << TorbIcp.at<float>(1, 3) << " " << TorbIcp.at<float>(2, 3) << " "
+                        << qorbIcp.x() << " " << qorbIcp.y() << " " << qorbIcp.z() << " " << qorbIcp.w() << "\n";
 
             // ground truth
             auto R2_gt = j[img_number_2]["cam_R_w2c"];
@@ -199,6 +207,7 @@ int main(int argc, char **argv)
     }
     fout_gt.close();
     fout_orb.close();
+    fout_orbIcp.close();
 
     // Stop all threads
     SLAM.Shutdown();
@@ -217,20 +226,4 @@ int main(int argc, char **argv)
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
-}
-
-void LoadImages(vector<string> &vstrImageFilenamesRGB,
-                vector<string> &vstrImageFilenamesD, vector<double> &vTimestamps)
-{
-    for (int i = 0; i < 1000; i += 10)
-    {
-        double t = i * 0.005;
-        vTimestamps.emplace_back(t);
-        string sindex = to_string(i);
-        int zeroNum = 6 - sindex.size();
-        string sRGB = "rgb/" + string(zeroNum, '0') + sindex + ".jpg";
-        vstrImageFilenamesRGB.emplace_back(sRGB);
-        string sD = "depth/" + string(zeroNum, '0') + sindex + ".png";
-        vstrImageFilenamesD.emplace_back(sD);
-    }
 }

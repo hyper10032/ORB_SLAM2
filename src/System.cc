@@ -102,6 +102,11 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpTracker->SetViewer(mpViewer);
     }
 
+    // Initialize the ICPsolver thread and launch
+    mpICPsolver = new ICPsolver(mpTracker,strSettingsFile);
+    mptICPsolver = new thread(&ICPsolver::run,mpICPsolver);
+    mpTracker->SetICPsolver(mpICPsolver);
+
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
@@ -164,7 +169,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     return Tcw;
 }
 
-cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
+std::pair<cv::Mat, cv::Mat> System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
 {
     if(mSensor!=RGBD)
     {
@@ -212,7 +217,15 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-    return Tcw;
+
+    Eigen::Matrix4f rectMatrix = mpICPsolver->getRectTransformation();
+    cv::Mat Trect = (cv::Mat_<float>(4, 4) << rectMatrix(0, 0), rectMatrix(0, 1), rectMatrix(0, 2), rectMatrix(0, 3),
+                        rectMatrix(1, 0), rectMatrix(1, 1), rectMatrix(1, 2), rectMatrix(1, 3),
+                        rectMatrix(2, 0), rectMatrix(2, 1), rectMatrix(2, 2), rectMatrix(2, 3),
+                        rectMatrix(3, 0), rectMatrix(3, 1), rectMatrix(3, 2), rectMatrix(3, 3));
+    cv::Mat Twc;
+    cv::invert(Tcw,Twc);
+    return std::make_pair(Twc,Trect*Twc);
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
@@ -308,6 +321,10 @@ void System::Shutdown()
         while(!mpViewer->isFinished())
             usleep(5000);
     }
+
+    mpICPsolver->RequestFinish();
+    while(!mpICPsolver->isFinished())
+        usleep(5000);
 
     // Wait until all thread have effectively stopped
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
