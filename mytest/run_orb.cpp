@@ -111,22 +111,25 @@ int main(int argc, char **argv)
         if (count != 0)
         {
             // save result
-            Eigen::Matrix3f temp;
-            temp << Torb.at<float>(0, 0), Torb.at<float>(0, 1), Torb.at<float>(0, 2),
-                Torb.at<float>(1, 0), Torb.at<float>(1, 1), Torb.at<float>(1, 2),
-                Torb.at<float>(2, 0), Torb.at<float>(2, 1), Torb.at<float>(2, 2);
-            Eigen::Quaternionf qorb(temp);
-            fout_orb << setprecision(6) << timeStamp << " "
-                     << setprecision(9) << Torb.at<float>(0, 3) << " " << Torb.at<float>(1, 3) << " " << Torb.at<float>(2, 3) << " "
-                     << qorb.x() << " " << qorb.y() << " " << qorb.z() << " " << qorb.w() << "\n";
+            if (!Torb.empty())
+            {
+                Eigen::Matrix3f temp;
+                temp << Torb.at<float>(0, 0), Torb.at<float>(0, 1), Torb.at<float>(0, 2),
+                    Torb.at<float>(1, 0), Torb.at<float>(1, 1), Torb.at<float>(1, 2),
+                    Torb.at<float>(2, 0), Torb.at<float>(2, 1), Torb.at<float>(2, 2);
+                Eigen::Quaternionf qorb(temp);
+                fout_orb << setprecision(6) << timeStamp << " "
+                         << setprecision(9) << Torb.at<float>(0, 3) << " " << Torb.at<float>(1, 3) << " " << Torb.at<float>(2, 3) << " "
+                         << qorb.x() << " " << qorb.y() << " " << qorb.z() << " " << qorb.w() << "\n";
 
-            temp << TorbIcp.at<float>(0, 0), TorbIcp.at<float>(0, 1), TorbIcp.at<float>(0, 2),
-                TorbIcp.at<float>(1, 0), TorbIcp.at<float>(1, 1), TorbIcp.at<float>(1, 2),
-                TorbIcp.at<float>(2, 0), TorbIcp.at<float>(2, 1), TorbIcp.at<float>(2, 2);
-            Eigen::Quaternionf qorbIcp(temp);
-            fout_orbIcp << setprecision(6) << timeStamp << " "
-                        << setprecision(9) << TorbIcp.at<float>(0, 3) << " " << TorbIcp.at<float>(1, 3) << " " << TorbIcp.at<float>(2, 3) << " "
-                        << qorbIcp.x() << " " << qorbIcp.y() << " " << qorbIcp.z() << " " << qorbIcp.w() << "\n";
+                temp << TorbIcp.at<float>(0, 0), TorbIcp.at<float>(0, 1), TorbIcp.at<float>(0, 2),
+                    TorbIcp.at<float>(1, 0), TorbIcp.at<float>(1, 1), TorbIcp.at<float>(1, 2),
+                    TorbIcp.at<float>(2, 0), TorbIcp.at<float>(2, 1), TorbIcp.at<float>(2, 2);
+                Eigen::Quaternionf qorbIcp(temp);
+                fout_orbIcp << setprecision(6) << timeStamp << " "
+                            << setprecision(9) << TorbIcp.at<float>(0, 3) << " " << TorbIcp.at<float>(1, 3) << " " << TorbIcp.at<float>(2, 3) << " "
+                            << qorbIcp.x() << " " << qorbIcp.y() << " " << qorbIcp.z() << " " << qorbIcp.w() << "\n";
+            }
 
             // ground truth
             auto R2_gt = j[img_number_2]["cam_R_w2c"];

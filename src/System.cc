@@ -217,15 +217,15 @@ std::pair<cv::Mat, cv::Mat> System::TrackRGBD(const cv::Mat &im, const cv::Mat &
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-
-    Eigen::Matrix4f rectMatrix = mpICPsolver->getRectTransformation();
-    cv::Mat Trect = (cv::Mat_<float>(4, 4) << rectMatrix(0, 0), rectMatrix(0, 1), rectMatrix(0, 2), rectMatrix(0, 3),
-                        rectMatrix(1, 0), rectMatrix(1, 1), rectMatrix(1, 2), rectMatrix(1, 3),
-                        rectMatrix(2, 0), rectMatrix(2, 1), rectMatrix(2, 2), rectMatrix(2, 3),
-                        rectMatrix(3, 0), rectMatrix(3, 1), rectMatrix(3, 2), rectMatrix(3, 3));
+    if (Tcw.empty())
+    {
+        cout << "return empty pose..." << endl;
+        return std::make_pair(Tcw, Tcw);
+    }
+    cv::Mat Trect = mpICPsolver->getRectTransformation();
     cv::Mat Twc;
-    cv::invert(Tcw,Twc);
-    return std::make_pair(Twc,Trect*Twc);
+    cv::invert(Tcw, Twc);
+    return std::make_pair(Twc, Trect * Twc);
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)

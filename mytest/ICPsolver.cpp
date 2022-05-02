@@ -9,8 +9,8 @@ namespace ORB_SLAM2
                                                                               mpTracker(pTracking), mbFinishRequested(false), mbFinished(false),
                                                                               depth_scale(1000.0), foutIcp("icp.txt")
     {
-        icpTransformation = Eigen::Matrix4f::Identity();
-        rectTransformation = Eigen::Matrix4f::Identity();
+        Ticp = cv::Mat::eye(4, 4, CV_32F);
+        Trect = cv::Mat::eye(4, 4, CV_32F);
         K = (cv::Mat_<double>(3, 3) << 300.0, 0, 512.0, 0, 300.0, 512.0, 0, 0, 1);
         foutIcp << fixed;
         foutIcp << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
@@ -26,14 +26,9 @@ namespace ORB_SLAM2
             chrono::steady_clock::time_point t0 = chrono::steady_clock::now();
 
             cv::Mat currentDepth;
-            cv::Mat cvMatrix;
+            cv::Mat Torb;
             double timeStamp;
-            std::tie(timeStamp, currentDepth, cvMatrix) = mpTracker->GetCurrentDepth();
-            Eigen::Matrix4f orbTransformation;
-            orbTransformation << cvMatrix.at<float>(0, 0), cvMatrix.at<float>(0, 1), cvMatrix.at<float>(0, 2), cvMatrix.at<float>(0, 3),
-                cvMatrix.at<float>(1, 0), cvMatrix.at<float>(1, 1), cvMatrix.at<float>(1, 2), cvMatrix.at<float>(1, 3),
-                cvMatrix.at<float>(2, 0), cvMatrix.at<float>(2, 1), cvMatrix.at<float>(2, 2), cvMatrix.at<float>(2, 3),
-                cvMatrix.at<float>(3, 0), cvMatrix.at<float>(3, 1), cvMatrix.at<float>(3, 2), cvMatrix.at<float>(3, 3);
+            std::tie(timeStamp, currentDepth, Torb) = mpTracker->GetCurrentDepth();
             // orbTransformation = orbTransformation.inverse();
             for (int v = 0; v < currentDepth.rows; v++)
             {
@@ -74,34 +69,39 @@ namespace ORB_SLAM2
             // icp.setTransformationEpsilon(1e-10);   // svd奇异值分解，对icp时间影响不大
             // icp.setEuclideanFitnessEpsilon(0.01);  //前后两次误差大小，当误差值小于这个值停止迭代
             // icp.setMaximumIterations(100);         //最大迭代次数
-            const Eigen::Matrix4f temp(icpTransformation);
+            Eigen::Matrix4f temp;
+            temp << Ticp.at<float>(0, 0), Ticp.at<float>(0, 1), Ticp.at<float>(0, 2), Ticp.at<float>(0, 3),
+                Ticp.at<float>(1, 0), Ticp.at<float>(1, 1), Ticp.at<float>(1, 2), Ticp.at<float>(1, 3),
+                Ticp.at<float>(2, 0), Ticp.at<float>(2, 1), Ticp.at<float>(2, 2), Ticp.at<float>(2, 3),
+                Ticp.at<float>(3, 0), Ticp.at<float>(3, 1), Ticp.at<float>(3, 2), Ticp.at<float>(3, 3);
             icp.align(*cloudIcp, temp);
             // cout << "icp has converged: " << icp.hasConverged() << "  score: " << icp.getFitnessScore() << endl;
             Eigen::Matrix4f temp2 = icp.getFinalTransformation();
             // cout << "icp result:\n"
             //      << temp2 << endl;
-            icpTransformation << temp2(0, 0), temp2(0, 1), temp2(0, 2), temp2(0, 3),
-                temp2(1, 0), temp2(1, 1), temp2(1, 2), temp2(1, 3),
-                temp2(2, 0), temp2(2, 1), temp2(2, 2), temp2(2, 3),
-                temp2(3, 0), temp2(3, 1), temp2(3, 2), temp2(3, 3);
+            Ticp = (cv::Mat_<float>(4, 4) << temp2(0, 0), temp2(0, 1), temp2(0, 2), temp2(0, 3),
+                    temp2(1, 0), temp2(1, 1), temp2(1, 2), temp2(1, 3),
+                    temp2(2, 0), temp2(2, 1), temp2(2, 2), temp2(2, 3),
+                    temp2(3, 0), temp2(3, 1), temp2(3, 2), temp2(3, 3));
 
-            Eigen::Matrix3f RIcp = icpTransformation.block(0, 0, 3, 3);
+            Eigen::Matrix3f RIcp = temp2.block(0, 0, 3, 3);
             Eigen::Quaternionf qIcp(RIcp);
             foutIcp << setprecision(6) << timeStamp << " "
-                    << setprecision(9) << icpTransformation(0, 3) << " " << icpTransformation(1, 3) << " " << icpTransformation(2, 3) << " "
+                    << setprecision(9) << temp2(0, 3) << " " << temp2(1, 3) << " " << temp2(2, 3) << " "
                     << qIcp.x() << " " << qIcp.y() << " " << qIcp.z() << " " << qIcp.w() << "\n";
 
             cloudSource->clear();
             cloudIcp->clear();
             cloudSourceFiltered->clear();
 
+            if (Torb.empty())
+            {
+                cout << "get empty Torb..." << endl;
+            }
+            else
             {
                 unique_lock<mutex> lock(mMutexRect);
-                Eigen::Matrix4f temp3 = icpTransformation * orbTransformation;
-                rectTransformation << temp3(0, 0), temp3(0, 1), temp3(0, 2), temp3(0, 3),
-                    temp3(1, 0), temp3(1, 1), temp3(1, 2), temp3(1, 3),
-                    temp3(2, 0), temp3(2, 1), temp3(2, 2), temp3(2, 3),
-                    temp3(3, 0), temp3(3, 1), temp3(3, 2), temp3(3, 3);
+                Trect = Ticp * Torb;
             }
 
             chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
@@ -158,10 +158,10 @@ namespace ORB_SLAM2
         cout << "get fisrt depth with size: " << cloudTarget->size() << endl;
     }
 
-    Eigen::Matrix4f ICPsolver::getRectTransformation()
+    cv::Mat ICPsolver::getRectTransformation()
     {
         unique_lock<mutex> lock(mMutexRect);
-        return rectTransformation;
+        return Trect;
     }
 
     void ICPsolver::RequestFinish()

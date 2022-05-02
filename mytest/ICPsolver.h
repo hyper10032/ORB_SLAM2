@@ -18,7 +18,7 @@ namespace ORB_SLAM2
     public:
         ICPsolver(Tracking *pTracking, const string &strSettingPath);
         void run();
-        Eigen::Matrix4f getRectTransformation();
+        cv::Mat getRectTransformation();
 
         void RequestFinish();
         bool isFinished();
@@ -38,9 +38,9 @@ namespace ORB_SLAM2
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloudIcp;
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloudSourceFiltered;
 
-        Eigen::Matrix4f icpTransformation;
+        cv::Mat Ticp;
 
-        Eigen::Matrix4f rectTransformation;
+        cv::Mat Trect;
         std::mutex mMutexRect;
 
         vector<double> mvTimesTrack;
