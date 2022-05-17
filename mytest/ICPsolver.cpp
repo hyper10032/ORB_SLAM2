@@ -1,4 +1,5 @@
 #include "mytest/ICPsolver.h"
+#include <pcl/io/pcd_io.h>
 
 namespace ORB_SLAM2
 {
@@ -15,6 +16,23 @@ namespace ORB_SLAM2
         foutIcp << fixed;
         foutIcp << setprecision(6) << 0.0 << " " << setprecision(9) << 0.0 << " " << 0.0 << " " << 0.0 << " "
                 << 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << "\n";
+
+        pcl::io::loadPCDFile<pcl::PointXYZ>("/home/hyper/code/backup/chandra_pc.pcd", *cloudTarget);
+        // pcl::io::loadPCDFile<pcl::PointXYZ>("/home/hyper/code/backup/clementine_pc.pcd", *cloudTarget);
+        Eigen::Matrix4f T1_gt = Eigen::Matrix4f::Zero();
+        T1_gt << -1.0, 0.0, 0.0, -10000.0 / 1000.0,
+            0.0, -1.0, 0.0, -10000.0 / 1000.0,
+            0.0, 0.0, 1.0, 15000.0 / 1000.0,
+            0.0, 0.0, 0.0, 1.0;
+        // T1_gt << -1.0, 0.0, 0.0, 5000.0 / 1000.0,
+        //     0.0, -1.0, 0.0, 5000.0 / 1000.0,
+        //     0.0, 0.0, 1.0, 10000.0 / 1000.0,
+        //     0.0, 0.0, 0.0, 1.0;
+
+        // 把模型点云变换到第一帧点云的坐标系，用模型点云替换第一帧点云作为cloudTarget
+        // T1_gt变换矩阵是从scene_gt.json文件里拿到的，这里为了方便没有采用读取文件的方式
+        pcl::transformPointCloud(*cloudTarget, *cloudTarget, T1_gt);
+        cout << "get point cloud model with size: " << cloudTarget->size() << endl;
     }
 
     void ICPsolver::run()
@@ -141,21 +159,21 @@ namespace ORB_SLAM2
             cout << "trying to get first depth" << endl;
             firstDepth = mpTracker->GetFirstDepth();
         }
-        for (int v = 0; v < firstDepth.rows; v++)
-        {
-            for (int u = 0; u < firstDepth.cols; u++)
-            {
-                ushort d1 = firstDepth.ptr<unsigned short>(v)[u];
-                if (d1 != 0 && d1 != 65535)
-                {
-                    double z1 = double(d1) / depth_scale;
-                    double x1 = (u - K.at<double>(0, 2)) / K.at<double>(0, 0) * z1;
-                    double y1 = (v - K.at<double>(1, 2)) / K.at<double>(1, 1) * z1;
-                    cloudTarget->push_back(pcl::PointXYZ(x1, y1, z1));
-                }
-            }
-        }
-        cout << "get fisrt depth with size: " << cloudTarget->size() << endl;
+        // for (int v = 0; v < firstDepth.rows; v++)
+        // {
+        //     for (int u = 0; u < firstDepth.cols; u++)
+        //     {
+        //         ushort d1 = firstDepth.ptr<unsigned short>(v)[u];
+        //         if (d1 != 0 && d1 != 65535)
+        //         {
+        //             double z1 = double(d1) / depth_scale;
+        //             double x1 = (u - K.at<double>(0, 2)) / K.at<double>(0, 0) * z1;
+        //             double y1 = (v - K.at<double>(1, 2)) / K.at<double>(1, 1) * z1;
+        //             cloudTarget->push_back(pcl::PointXYZ(x1, y1, z1));
+        //         }
+        //     }
+        // }
+        // cout << "get fisrt depth with size: " << cloudTarget->size() << endl;
     }
 
     cv::Mat ICPsolver::getRectTransformation()
